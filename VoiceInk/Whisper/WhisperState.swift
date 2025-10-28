@@ -170,6 +170,7 @@ class WhisperState: NSObject, ObservableObject {
                 }
                 return
             }
+            
             shouldCancelRecording = false
             requestRecordPermission { [self] granted in
                 if granted {
@@ -180,31 +181,42 @@ class WhisperState: NSObject, ObservableObject {
                             let permanentURL = self.recordingsDirectory.appendingPathComponent(fileName)
                             self.recordedFile = permanentURL
         
+                            // START RECORDING IMMEDIATELY - this is the critical path
                             try await self.recorder.startRecording(toOutputFile: permanentURL)
                             
                             await MainActor.run {
                                 self.recordingState = .recording
                             }
                             
-                            await ActiveWindowService.shared.applyConfigurationForCurrentApp()
+                            // Now do everything else in parallel/background - NOT blocking recording
+                            Task.detached(priority: .userInitiated) {
+                                await ActiveWindowService.shared.applyConfigurationForCurrentApp()
+                            }
          
-                            // Only load model if it's a local model and not already loaded
-                            if let model = self.currentTranscriptionModel, model.provider == .local {
-                                if let localWhisperModel = self.availableModels.first(where: { $0.name == model.name }),
-                                   self.whisperContext == nil {
-                                    do {
-                                        try await self.loadModel(localWhisperModel)
-                                    } catch {
-                                        self.logger.error("❌ Model loading failed: \(error.localizedDescription)")
+                            // Load model in background - only if needed
+                            Task.detached(priority: .userInitiated) { [weak self] in
+                                guard let self = self else { return }
+                                if let model = await self.currentTranscriptionModel, model.provider == .local {
+                                    if let localWhisperModel = await self.availableModels.first(where: { $0.name == model.name }),
+                                       await self.whisperContext == nil {
+                                        do {
+                                            try await self.loadModel(localWhisperModel)
+                                        } catch {
+                                            await self.logger.error("❌ Model loading failed: \(error.localizedDescription)")
+                                        }
                                     }
+                                } else if let parakeetModel = await self.currentTranscriptionModel as? ParakeetModel {
+                                    try? await self.parakeetTranscriptionService.loadModel(for: parakeetModel)
                                 }
-                            } else if let parakeetModel = self.currentTranscriptionModel as? ParakeetModel {
-                                try? await self.parakeetTranscriptionService.loadModel(for: parakeetModel)
                             }
         
-                            if let enhancementService = self.enhancementService {
-                                enhancementService.captureClipboardContext()
-                                await enhancementService.captureScreenContext()
+                            // Capture contexts in background - don't block recording
+                            Task.detached(priority: .background) { [weak self] in
+                                guard let self = self else { return }
+                                if let enhancementService = await self.enhancementService {
+                                    await enhancementService.captureClipboardContext()
+                                    await enhancementService.captureScreenContext()
+                                }
                             }
         
                         } catch {
@@ -380,12 +392,7 @@ class WhisperState: NSObject, ObservableObject {
         if await checkCancellationAndCleanup() { return }
 
         if var textToPaste = finalPastedText, transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
-            if case .trialExpired = licenseViewModel.licenseState {
-                textToPaste = """
-                    Your trial has expired. Upgrade to VoiceInk Pro at tryvoiceink.com/buy
-                    \n\(textToPaste)
-                    """
-            }
+            // No trial expiry message - app is always licensed now
 
             let shouldAddSpace = UserDefaults.standard.object(forKey: "AppendTrailingSpace") as? Bool ?? true
             if shouldAddSpace {

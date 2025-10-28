@@ -93,7 +93,7 @@ struct RecorderRecordButton: View {
     
     private var buttonColor: Color {
         if isProcessing {
-            return Color(red: 0.4, green: 0.4, blue: 0.45)
+            return Color.orange.opacity(0.8)
         } else if isRecording {
             return .red
         } else {

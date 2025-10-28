@@ -280,7 +280,21 @@ class AIEnhancementService: ObservableObject {
             }
 
         default:
-            let url = URL(string: aiService.selectedProvider.baseURL)!
+            var urlString = aiService.selectedProvider.baseURL
+            
+            // For custom provider, ensure we have the complete chat completions endpoint
+            if aiService.selectedProvider == .custom && !urlString.hasSuffix("/chat/completions") {
+                // Remove trailing slash if present
+                if urlString.hasSuffix("/") {
+                    urlString = String(urlString.dropLast())
+                }
+                urlString += "/chat/completions"
+            }
+            
+            guard let url = URL(string: urlString) else {
+                throw EnhancementError.customError("Invalid API endpoint URL")
+            }
+            
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")

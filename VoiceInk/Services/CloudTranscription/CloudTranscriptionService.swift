@@ -10,6 +10,9 @@ enum CloudTranscriptionError: Error, LocalizedError {
     case networkError(Error)
     case noTranscriptionReturned
     case dataEncodingError
+    case rateLimitExceeded
+    case requestTooLarge
+    case modelNotAvailable
     
     var errorDescription: String? {
         switch self {
@@ -29,6 +32,12 @@ enum CloudTranscriptionError: Error, LocalizedError {
             return "The API returned an empty or invalid response."
         case .dataEncodingError:
             return "Failed to encode the request body."
+        case .rateLimitExceeded:
+            return "Rate limit exceeded. Please try again later."
+        case .requestTooLarge:
+            return "The request is too large."
+        case .modelNotAvailable:
+            return "The requested model is not available."
         }
     }
 }

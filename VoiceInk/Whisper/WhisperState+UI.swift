@@ -42,13 +42,14 @@ extension WhisperState {
                 await cancelRecording()
             }
         } else {
-            SoundManager.shared.playStartSound()
-
-            await toggleRecord()
-
+            // Show window FIRST for instant visual feedback
             await MainActor.run {
                 isMiniRecorderVisible = true // This will call showRecorderPanel() via didSet
             }
+            
+            // Play sound and start recording in parallel
+            Task { SoundManager.shared.playStartSound() }
+            await toggleRecord()
         }
     }
     

@@ -15,6 +15,9 @@ struct AddCustomModelCardView: View {
     @State private var validationErrors: [String] = []
     @State private var showingAlert = false
     @State private var isSaving = false
+    @State private var isTesting = false
+    @State private var testResult: String? = nil
+    @State private var testSuccess: Bool = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -103,6 +106,49 @@ struct AddCustomModelCardView: View {
                         FormField(title: "Model Name", text: $modelName, placeholder: "whisper-1")
                         
                         Toggle("Multilingual Model", isOn: $isMultilingual)
+                        
+                        // Test Connection Section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button(action: {
+                                testConnection()
+                            }) {
+                                HStack(spacing: 6) {
+                                    if isTesting {
+                                        ProgressView()
+                                            .scaleEffect(0.7)
+                                            .frame(width: 14, height: 14)
+                                    } else {
+                                        Image(systemName: "antenna.radiowaves.left.and.right")
+                                            .font(.system(size: 14))
+                                    }
+                                    Text("Test Connection")
+                                        .font(.system(size: 13, weight: .medium))
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color.blue)
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!isFormValid || isTesting)
+                            
+                            if let result = testResult {
+                                HStack(spacing: 8) {
+                                    Image(systemName: testSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                        .foregroundColor(testSuccess ? .green : .red)
+                                    Text(result)
+                                        .font(.caption)
+                                        .foregroundColor(testSuccess ? .green : .red)
+                                }
+                                .padding(8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill((testSuccess ? Color.green : Color.red).opacity(0.1))
+                                )
+                            }
+                        }
                     }
                     
                     // Action buttons
@@ -197,6 +243,47 @@ struct AddCustomModelCardView: View {
         apiKey = ""
         modelName = ""
         isMultilingual = true
+        testResult = nil
+        testSuccess = false
+    }
+    
+    private func testConnection() {
+        testResult = nil
+        isTesting = true
+        
+        Task {
+            do {
+                let trimmedEndpoint = apiEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmedModelName = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // Create a test model
+                let testModel = CustomCloudModel(
+                    name: "test",
+                    displayName: "Test",
+                    description: "Test",
+                    apiEndpoint: trimmedEndpoint,
+                    apiKey: trimmedKey,
+                    modelName: trimmedModelName,
+                    isMultilingual: isMultilingual
+                )
+                
+                // Test the endpoint
+                let result = await customModelManager.testEndpoint(model: testModel)
+                
+                await MainActor.run {
+                    isTesting = false
+                    testSuccess = result.success
+                    testResult = result.message
+                }
+            } catch {
+                await MainActor.run {
+                    isTesting = false
+                    testSuccess = false
+                    testResult = "Unexpected error: \(error.localizedDescription)"
+                }
+            }
+        }
     }
     
     private func addModel() {

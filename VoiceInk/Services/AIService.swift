@@ -314,7 +314,23 @@ class AIService: ObservableObject {
     }
     
     private func verifyOpenAICompatibleAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        let url = URL(string: selectedProvider.baseURL)!
+        var urlString = selectedProvider.baseURL
+        
+        // For custom provider, ensure we have the complete chat completions endpoint
+        if selectedProvider == .custom && !urlString.hasSuffix("/chat/completions") {
+            // Remove trailing slash if present
+            if urlString.hasSuffix("/") {
+                urlString = String(urlString.dropLast())
+            }
+            urlString += "/chat/completions"
+        }
+        
+        guard let url = URL(string: urlString) else {
+            logger.notice("🔑 Invalid URL: \(urlString, privacy: .public)")
+            completion(false)
+            return
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")

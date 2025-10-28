@@ -63,13 +63,16 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
         let currentDeviceID = deviceManager.getCurrentDevice()
         let lastDeviceID = UserDefaults.standard.string(forKey: "lastUsedMicrophoneDeviceID")
         
+        // Show device notification in background - don't block recording
         if String(currentDeviceID) != lastDeviceID {
-            if let deviceName = deviceManager.availableDevices.first(where: { $0.id == currentDeviceID })?.name {
-                await MainActor.run {
-                    NotificationManager.shared.showNotification(
-                        title: "Using: \(deviceName)",
-                        type: .info
-                    )
+            Task.detached(priority: .background) {
+                if let deviceName = await self.deviceManager.availableDevices.first(where: { $0.id == currentDeviceID })?.name {
+                    await MainActor.run {
+                        NotificationManager.shared.showNotification(
+                            title: "Using: \(deviceName)",
+                            type: .info
+                        )
+                    }
                 }
             }
         }
@@ -106,7 +109,8 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
                 throw RecorderError.couldNotStartRecording
             }
             
-            Task { [weak self] in
+            // Pause media and mute system audio in background - don't block
+            Task.detached(priority: .userInitiated) { [weak self] in
                 guard let self = self else { return }
                 await self.playbackController.pauseMedia()
                 _ = await self.mediaController.muteSystemAudio()
@@ -118,7 +122,7 @@ class Recorder: NSObject, ObservableObject, AVAudioRecorderDelegate {
             audioMeterUpdateTask = Task {
                 while recorder != nil && !Task.isCancelled {
                     updateAudioMeter()
-                    try? await Task.sleep(nanoseconds: 33_000_000)
+                    try? await Task.sleep(nanoseconds: 16_000_000) // ~60fps for smoother visualization
                 }
             }
             

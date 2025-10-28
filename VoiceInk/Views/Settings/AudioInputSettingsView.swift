@@ -65,7 +65,46 @@ struct AudioInputSettingsView: View {
                     )
                 }
             }
+            
+            // Show currently active device
+            currentDeviceIndicator
         }
+    }
+    
+    private var currentDeviceIndicator: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .font(.system(size: 16))
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Currently Using")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                if let deviceName = audioDeviceManager.getDeviceName(deviceID: audioDeviceManager.getCurrentDevice()) {
+                    Text(deviceName)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                } else {
+                    Text("System Default")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.green.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
     
     private var customDeviceSection: some View {
@@ -266,7 +305,7 @@ struct InputModeCard: View {
     
     private var description: String {
         switch mode {
-        case .systemDefault: return "Use system's default input device"
+        case .systemDefault: return "Smart selection: prefers AirPods/Bluetooth devices"
         case .custom: return "Select a specific input device"
         case .prioritized: return "Set up device priority order"
         }

@@ -69,16 +69,16 @@ struct AudioVisualizer: View {
             let targetHeight = minHeight + CGFloat(sensitivityAdjustedLevel) * range
             
             let isDecaying = targetHeight < targetHeights[i]
-            let smoothingFactor: CGFloat = isDecaying ? 0.6 : 0.3 // Adjusted smoothing
+            let smoothingFactor: CGFloat = isDecaying ? 0.7 : 0.4 // Faster response
             
             targetHeights[i] = targetHeights[i] * (1 - smoothingFactor) + targetHeight * smoothingFactor
             
             // Only update if change is significant enough to matter visually
-            if abs(barHeights[i] - targetHeights[i]) > 0.5 {
+            if abs(barHeights[i] - targetHeights[i]) > 0.3 {
                 withAnimation(
                     isDecaying
-                    ? .spring(response: 0.4, dampingFraction: 0.8)
-                    : .spring(response: 0.3, dampingFraction: 0.7)
+                    ? .spring(response: 0.25, dampingFraction: 0.85)
+                    : .spring(response: 0.15, dampingFraction: 0.75)
                 ) {
                     barHeights[i] = targetHeights[i]
                 }
@@ -87,7 +87,7 @@ struct AudioVisualizer: View {
     }
     
     private func resetBars() {
-        withAnimation(.easeOut(duration: 0.15)) {
+        withAnimation(.easeOut(duration: 0.1)) {
             barHeights = Array(repeating: minHeight, count: barCount)
             targetHeights = Array(repeating: minHeight, count: barCount)
         }
@@ -107,6 +107,52 @@ struct StaticVisualizer: View {
                 RoundedRectangle(cornerRadius: 1.7)
                     .fill(color)
                     .frame(width: barWidth, height: staticHeight)
+            }
+        }
+    }
+}
+
+struct PulsingVisualizer: View {
+    private let barCount = 12
+    private let barWidth: CGFloat = 3.5
+    private let minHeight: CGFloat = 5.0
+    private let maxHeight: CGFloat = 18.0
+    private let barSpacing: CGFloat = 2.3
+    let color: Color
+    
+    @State private var barHeights: [CGFloat]
+    @State private var animationPhase: Double = 0
+    
+    init(color: Color) {
+        self.color = color
+        _barHeights = State(initialValue: Array(repeating: minHeight, count: 12))
+    }
+    
+    var body: some View {
+        HStack(spacing: barSpacing) {
+            ForEach(0..<barCount, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 1.7)
+                    .fill(color.opacity(0.8))
+                    .frame(width: barWidth, height: barHeights[index])
+            }
+        }
+        .onAppear {
+            startAnimation()
+        }
+    }
+    
+    private func startAnimation() {
+        let center = Double(barCount) / 2.0
+        
+        withAnimation(
+            .easeInOut(duration: 0.8)
+            .repeatForever(autoreverses: true)
+        ) {
+            barHeights = (0..<barCount).map { index in
+                let distanceFromCenter = abs(Double(index) - center)
+                let normalizedDistance = distanceFromCenter / center
+                let heightMultiplier = 1.0 - (normalizedDistance * 0.4)
+                return minHeight + (maxHeight - minHeight) * CGFloat(heightMultiplier)
             }
         }
     }

@@ -60,6 +60,18 @@ struct MetricsSetupView: View {
         }
         .frame(minWidth: 500, minHeight: 600)
         .background(Color(NSColor.controlBackgroundColor))
+        .onAppear {
+            refreshPermissionStates()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            // Re-check permissions when app becomes active
+            refreshPermissionStates()
+        }
+    }
+    
+    private func refreshPermissionStates() {
+        isAccessibilityEnabled = AXIsProcessTrusted()
+        isScreenRecordingEnabled = CGPreflightScreenCaptureAccess()
     }
     
     private func setupStep(for index: Int) -> some View {

@@ -19,6 +19,7 @@ class AudioDeviceManager: ObservableObject {
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AudioDeviceManager")
     @Published var availableDevices: [(id: AudioDeviceID, uid: String, name: String)] = []
     @Published var selectedDeviceID: AudioDeviceID?
+    @Published var autoSelectedDeviceID: AudioDeviceID?  // Track auto-selected device in System Default mode
     @Published var inputMode: AudioInputMode = .systemDefault
     @Published var prioritizedDevices: [PrioritizedDevice] = []
     var fallbackDeviceID: AudioDeviceID?
@@ -74,10 +75,11 @@ class AudioDeviceManager: ObservableObject {
             } else {
                 logger.warning("Saved device UID \(savedUID) is no longer available")
                 UserDefaults.standard.removeObject(forKey: UserDefaults.Keys.selectedAudioDeviceUID)
-                fallbackToDefaultDevice()
+                smartSelectDevice()
             }
         } else {
-            fallbackToDefaultDevice()
+            // No saved preference - use smart selection
+            smartSelectDevice()
         }
     }
     
@@ -93,6 +95,38 @@ class AudioDeviceManager: ObservableObject {
         }
 
         notifyDeviceChange()
+    }
+    
+    private func smartSelectDevice() {
+        // Smart selection: prefer Bluetooth/AirPods over built-in microphone
+        // Priority: Bluetooth headsets > USB microphones > Built-in mic
+        
+        // Check for Bluetooth devices (AirPods, etc.)
+        if let bluetoothDevice = availableDevices.first(where: { device in
+            let name = device.name.lowercased()
+            return name.contains("airpods") || 
+                   name.contains("bluetooth") ||
+                   name.contains("headset") ||
+                   name.contains("beats")
+        }) {
+            autoSelectedDeviceID = bluetoothDevice.id
+            logger.info("Auto-selected Bluetooth device: \(bluetoothDevice.name)")
+            return
+        }
+        
+        // Check for USB microphones (external mics)
+        if let usbDevice = availableDevices.first(where: { device in
+            let name = device.name.lowercased()
+            return name.contains("usb") && !name.contains("built-in")
+        }) {
+            autoSelectedDeviceID = usbDevice.id
+            logger.info("Auto-selected USB device: \(usbDevice.name)")
+            return
+        }
+        
+        // Fall back to system default (built-in microphone)
+        autoSelectedDeviceID = fallbackDeviceID
+        logger.info("Using system default input device")
     }
     
     func loadAvailableDevices(completion: (() -> Void)? = nil) {
@@ -231,6 +265,8 @@ class AudioDeviceManager: ObservableObject {
         if mode == .systemDefault {
             selectedDeviceID = nil
             UserDefaults.standard.removeObject(forKey: UserDefaults.Keys.selectedAudioDeviceUID)
+            // Run smart selection for System Default mode
+            smartSelectDevice()
         } else if selectedDeviceID == nil {
             if inputMode == .custom {
                 if let firstDevice = availableDevices.first {
@@ -247,7 +283,7 @@ class AudioDeviceManager: ObservableObject {
     func getCurrentDevice() -> AudioDeviceID {
         switch inputMode {
         case .systemDefault:
-            return fallbackDeviceID ?? 0
+            return autoSelectedDeviceID ?? fallbackDeviceID ?? 0
         case .custom:
             if let id = selectedDeviceID, isDeviceAvailable(id) {
                 return id
@@ -377,6 +413,16 @@ class AudioDeviceManager: ObservableObject {
                       let currentID = self.selectedDeviceID,
                       !self.isDeviceAvailable(currentID) {
                 self.fallbackToDefaultDevice()
+            } else if self.inputMode == .systemDefault {
+                // When in system default mode and devices change, check if we should auto-switch
+                // to a better device (e.g., AirPods just connected)
+                let currentDevice = self.getCurrentDevice()
+                let currentName = self.getDeviceName(deviceID: currentDevice)?.lowercased() ?? ""
+                
+                // If currently using built-in mic, try to switch to a better device
+                if currentName.contains("built-in") || self.selectedDeviceID == nil {
+                    self.smartSelectDevice()
+                }
             }
         }
     }
