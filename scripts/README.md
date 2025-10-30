@@ -1,8 +1,32 @@
 # VoiceInk Build Scripts
 
-## Quick Start
+## Quick Start Options
 
-To build and install VoiceInk on a new Mac:
+### Option 1: Development Build (Makefile - Fast)
+
+For quick development builds without installation:
+
+```bash
+cd /path/to/VoiceInk
+make dev
+```
+
+This will:
+- ✅ Build whisper.cpp (once, in ~/VoiceInk-Dependencies)
+- ✅ Build VoiceInk in Debug mode
+- ✅ Launch from build directory
+- ⚡ Fastest for iterative development
+
+Other Makefile commands:
+- `make check` - Check prerequisites
+- `make build` - Just build, don't run
+- `make run` - Just run, don't build
+- `make clean` - Clean build artifacts
+- `make help` - Show all commands
+
+### Option 2: Full Installation (scripts/run.sh - Production-like)
+
+To build and install VoiceInk to /Applications:
 
 ```bash
 cd /path/to/VoiceInk
@@ -19,6 +43,16 @@ That's it! The script will automatically:
 7. ✅ Replace existing installation if present
 8. ✅ Launch the app
 
+## Which One Should I Use?
+
+| Scenario | Use This | Why |
+|----------|----------|-----|
+| Developing new features | `make dev` | Fastest build/test cycle |
+| Testing UI changes | `make dev` | No need for full install |
+| Testing permissions/installation | `./scripts/run.sh` | Full /Applications install |
+| Sharing with testers | `./scripts/run.sh` | Production-like build |
+| First time contributor | `make check && make dev` | Quickest to get started |
+
 ## Prerequisites
 
 - **macOS 14.0 or later**
@@ -29,9 +63,33 @@ That's it! The script will automatically:
   - Install from https://brew.sh
   - Or install cmake manually
 
-## What the Script Does
+## What the Scripts Do
 
-### First-Time Setup (Automatic)
+### Makefile (Development)
+
+Best for rapid iteration during development:
+
+```bash
+make dev    # Build and run (Debug mode)
+make build  # Just build
+make run    # Just run existing build
+```
+
+Features:
+- Builds in Debug mode for faster compilation
+- Stores dependencies in ~/VoiceInk-Dependencies
+- Runs from DerivedData (no /Applications install)
+- Great for testing changes quickly
+
+### scripts/run.sh (Production-like)
+
+Best for testing the full installation experience:
+
+```bash
+./scripts/run.sh
+```
+
+Features:
 
 1. **whisper.cpp dependency**
    - Checks if `../whisper.cpp/build-apple/whisper.xcframework` exists
@@ -53,7 +111,7 @@ That's it! The script will automatically:
    - Sets correct permissions
    - Launches the app
 
-### Subsequent Runs
+#### Subsequent Runs
 
 After the first successful run:
 - ✅ whisper.cpp is already built (skipped)
@@ -136,8 +194,20 @@ yaananth/
 
 ## Development Workflow
 
+### For Daily Development (Recommended)
+
 1. **Make changes** to VoiceInk source code
-2. **Rebuild and install:**
+2. **Quick rebuild:**
+   ```bash
+   make dev
+   ```
+3. **Test** the changes
+4. **Repeat!**
+
+### For Full Testing
+
+1. **Make changes** to VoiceInk source code
+2. **Full rebuild and install:**
    ```bash
    ./scripts/run.sh
    ```
