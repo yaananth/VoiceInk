@@ -8,6 +8,11 @@ enum EnhancementPrompt {
     case aiAssistant
 }
 
+enum EnhancementToggleSource {
+    case ui
+    case shortcut
+}
+
 @MainActor
 class AIEnhancementService: ObservableObject {
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "AIEnhancementService")
@@ -475,6 +480,18 @@ class AIEnhancementService: ObservableObject {
             } else {
                 customPrompts.append(template)
             }
+        }
+    }
+
+    func toggleEnhancement(source: EnhancementToggleSource) {
+        isEnhancementEnabled.toggle()
+        logger.notice("Enhancement toggled via \(String(describing: source)) -> \(self.isEnhancementEnabled, privacy: .public)")
+        if source == .shortcut {
+            NotificationCenter.default.post(
+                name: .enhancementToggledByShortcut,
+                object: nil,
+                userInfo: ["enabled": isEnhancementEnabled]
+            )
         }
     }
 }

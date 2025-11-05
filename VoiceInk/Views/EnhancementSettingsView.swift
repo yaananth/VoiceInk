@@ -97,8 +97,6 @@ struct EnhancementSettingsView: View {
                     }
                     .padding()
                     .background(CardBackground(isSelected: false))
-                    
-                    EnhancementShortcutsSection()
                 }
             }
             .padding(24)
@@ -259,5 +257,27 @@ private struct PromptEndDropDelegate: DropDelegate {
         }
         self.draggingItem = nil
         return true
+    }
+}
+
+private struct KeyGroup: View {
+    let keys: [String]
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(keys, id: \.self) { key in
+                Text(key)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color(NSColor.controlBackgroundColor))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+                    )
+            }
+        }
     }
 }
